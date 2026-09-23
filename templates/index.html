@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <title>AI Bildgenerator</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 700px; margin: 40px auto; padding: 20px; text-align: center; }
+        textarea { width: 100%; height: 80px; padding: 10px; margin-bottom: 10px; font-size: 16px; }
+        button { padding: 12px 24px; font-size: 16px; background-color: #007bff; color: white; border: none; cursor: pointer; border-radius: 4px; }
+        button:disabled { background-color: #ccc; }
+        #result { margin-top: 20px; }
+        img { max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        .spinner { display: none; margin: 15px auto; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>AI Bildgenerator</h1>
+    <p>Beskriv bilden du vill skapa:</p>
+    <textarea id="prompt" placeholder="En astronaut som rider på en enhörning i mörkaste rymden, digital art..."></textarea><br>
+    <button id="generateBtn" onclick="generateImage()">Skapa bild</button>
+    
+    <div id="loading" class="spinner">Genererar bild, detta kan ta några sekunder...</div>
+    <div id="result"></div>
+
+    <script>
+        async function generateImage() {
+            const prompt = document.getElementById("prompt").value;
+            const btn = document.getElementById("generateBtn");
+            const loading = document.getElementById("loading");
+            const resultDiv = document.getElementById("result");
+
+            if (!prompt) return alert("Skriv in en beskrivning först!");
+
+            btn.disabled = true;
+            loading.style.display = "block";
+            resultDiv.innerHTML = "";
+
+            try {
+                const response = await fetch("/generate", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ prompt: prompt })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    resultDiv.innerHTML = `<img src="${data.image_url}" alt="Genererad bild">`;
+                } else {
+                    resultDiv.innerHTML = `<p style="color:red;">Fel: ${data.error}</p>`;
+                }
+            } catch (err) {
+                resultDiv.innerHTML = `<p style="color:red;">Nätverksfel vid anrop.</p>`;
+            } finally {
+                btn.disabled = false;
+                loading.style.display = "none";
+            }
+        }
+    </script>
+</body>
+</html>
