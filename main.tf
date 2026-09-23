@@ -13,8 +13,8 @@ provider "aws" {
 
 # Skapa nyckelpar i AWS från din lokala publika nyckel
 resource "aws_key_pair" "app_key" {
-  key_name   = "image-app-key"
-  public_key = file("${path.module}/keys/image-app-key.pem.pub")
+  key_name   = "ec2kp"
+  public_key = file("${path.module}/keys/ec2kp.pub")
 }
 
 # Säkerhetsgrupp för HTTP (80) och SSH (22)

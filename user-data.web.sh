@@ -1,11 +1,4 @@
 #!/bin/bash
-
-# Sätt sökvägen till din SSH-nyckel i keys/-mappen
-MY_SSH="./keys/ec2kp.pem"
-
-# 1. Skapa user-data skript för EC2 (Ansible-playbooken)
-cat<<"EOF" > user-data.web.sh
-#!/bin/bash
 ###########################################################
 # Automatiserad uppsättning av AI-Bildgenerator
 ###########################################################
@@ -110,15 +103,3 @@ EOA
 
 # Kör Ansible Playbook direkt på servern
 ansible-playbook -v config-and-deploy.web.yml
-EOF
-
-# 2. Kör Terraform för att bygga/uppdatera infrastrukturen
-terraform init
-terraform plan -out=tfplan
-terraform apply "tfplan"
-
-# 3. Hämta EC2-DNS och följ loggen via SSH
-export MY_EC2=$(terraform output -json | jq -r .ec2_public_dns_name.value)
-
-echo "Kopplar upp mot EC2 ($MY_EC2) for att visa installationsstatus..."
-ssh -i $MY_SSH ec2-user@$MY_EC2 sudo tail -f /var/log/cloud-init-output.log
