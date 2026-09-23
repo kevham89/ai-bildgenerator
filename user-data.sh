@@ -82,9 +82,39 @@ echo "Konfigurerar Nginx..."
 
 rm -f /etc/nginx/conf.d/default.conf
 
+echo "Tar bort Amazon Linux standard-server..."
+
+python3 - <<'PY'
+from pathlib import Path
+
+path = Path("/etc/nginx/nginx.conf")
+config = path.read_text()
+
+start_marker = """    server {
+        listen       80;
+        listen       [::]:80;
+        server_name  _;
+"""
+
+start = config.find(start_marker)
+
+if start == -1:
+    raise SystemExit("Kunde inte hitta Nginx standard-server")
+
+end = config.find("\n    }\n", start)
+
+if end == -1:
+    raise SystemExit("Kunde inte hitta slutet på Nginx standard-server")
+
+config = config[:start] + config[end + len("\n    }\n"):]
+
+path.write_text(config)
+PY
+
 cat > /etc/nginx/conf.d/ai-bildgenerator.conf <<'EOF_NGINX'
 server {
     listen 80;
+    listen [::]:80;
     server_name _;
 
     location / {
