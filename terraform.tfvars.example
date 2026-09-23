@@ -1,0 +1,4 @@
+aws_region        = "eu-north-1"
+instance_type     = "t3.micro"
+key_name          = "ec2kp"
+huggingface_token = "hf_DIN_TOKEN_HAR"

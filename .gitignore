@@ -1,29 +1,30 @@
-# Hemliga nycklar och miljövariabler (MYCKET VIKTIGT)
+# Hemliga nycklar och miljövariabler
 .env
 keys/
 *.pem
 *.key
 
-# Terraform-filer och lokalt tillstånd
+# Terraform
 .terraform/
-.terraform.lock.hcl
 terraform.tfstate
-terraform.tfstate.backup
+terraform.tfstate.*
 tfplan
 
-# Tillfälliga filer och säkerhetskopior
-user-data.web.sh·
-*.tmp
-*.bak
-*.swp
-
-# Python & Virtuella miljöer
+# Python
 venv/
 .venv/
 __pycache__/
 *.pyc
 *.pyo
 
-# OS-genererade filer
+# Backup och temporära filer
+*.backup
+*.bak
+*.tmp
+*.swp
+
+# OS
 .DS_Store
-Thumbs.db
+
+# Terraform variabler med lokala/hemliga värden
+terraform.tfvars

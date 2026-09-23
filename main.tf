@@ -8,22 +8,83 @@ terraform {
 }
 
 provider "aws" {
-  region = "eu-north-1" # Byt till din valda AWS-region om behövs
+  region = var.aws_region
 }
 
-# Skapa nyckelpar i AWS från din lokala publika nyckel
-resource "aws_key_pair" "app_key" {
-  key_name   = "ec2kp"
-  public_key = file("${path.module}/keys/ec2kp.pub")
+# ---------------------------------------------------------
+# VPC
+# ---------------------------------------------------------
+
+resource "aws_vpc" "main" {
+  cidr_block           = "10.0.0.0/16"
+  enable_dns_support   = true
+  enable_dns_hostnames = true
+
+  tags = {
+    Name = "ai-bildgenerator-vpc"
+  }
 }
 
-# Säkerhetsgrupp för HTTP (80) och SSH (22)
-resource "aws_security_group" "web_sg" {
-  name        = "bildgenerator-sg"
-  description = "Tillat HTTP och SSH"
+# ---------------------------------------------------------
+# Public subnet
+# ---------------------------------------------------------
+
+resource "aws_subnet" "public" {
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = "10.0.1.0/24"
+  availability_zone       = "${var.aws_region}a"
+  map_public_ip_on_launch = true
+
+  tags = {
+    Name = "ai-bildgenerator-public-subnet"
+  }
+}
+
+# ---------------------------------------------------------
+# Internet Gateway
+# ---------------------------------------------------------
+
+resource "aws_internet_gateway" "main" {
+  vpc_id = aws_vpc.main.id
+
+  tags = {
+    Name = "ai-bildgenerator-igw"
+  }
+}
+
+# ---------------------------------------------------------
+# Route table
+# ---------------------------------------------------------
+
+resource "aws_route_table" "public" {
+  vpc_id = aws_vpc.main.id
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.main.id
+  }
+
+  tags = {
+    Name = "ai-bildgenerator-public-route"
+  }
+}
+
+resource "aws_route_table_association" "public" {
+  subnet_id      = aws_subnet.public.id
+  route_table_id = aws_route_table.public.id
+}
+
+# ---------------------------------------------------------
+# Security Group
+# ---------------------------------------------------------
+
+resource "aws_security_group" "web" {
+  name        = "ai-bildgenerator-sg"
+  description = "Allow HTTP and SSH access"
+  vpc_id      = aws_vpc.main.id
 
   ingress {
-    description = "HTTP fran varlden"
+    description = "HTTP"
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
@@ -31,7 +92,7 @@ resource "aws_security_group" "web_sg" {
   }
 
   ingress {
-    description = "SSH access"
+    description = "SSH"
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
@@ -39,22 +100,42 @@ resource "aws_security_group" "web_sg" {
   }
 
   egress {
+    description = "Allow all outbound traffic"
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
+
+  tags = {
+    Name = "ai-bildgenerator-sg"
+  }
 }
 
-# EC2 Instans (Amazon Linux 2023)
+# ---------------------------------------------------------
+# Amazon Linux 2023 AMI
+# ---------------------------------------------------------
+
+data "aws_ssm_parameter" "al2023_ami" {
+  name = "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64"
+}
+
+# ---------------------------------------------------------
+# EC2 instance
+# ---------------------------------------------------------
+
 resource "aws_instance" "web" {
-  ami                         = "ami-0c4fc5dcabc9df21d" # Amazon Linux 2023 AMI för eu-north-1
-  instance_type               = "t3.micro"
-  key_name                    = aws_key_pair.app_key.key_name
-  vpc_security_group_ids      = [aws_security_group.web_sg.id]
+  ami                         = data.aws_ssm_parameter.al2023_ami.value
+  instance_type               = var.instance_type
+  key_name                    = var.key_name
+  subnet_id                   = aws_subnet.public.id
+  vpc_security_group_ids      = [aws_security_group.web.id]
   associate_public_ip_address = true
 
-  user_data                   = file("${path.module}/user-data.web.sh")
+  user_data = templatefile("${path.module}/user-data.sh", {
+    huggingface_token = var.huggingface_token
+  })
+
   user_data_replace_on_change = true
 
   tags = {
@@ -62,12 +143,16 @@ resource "aws_instance" "web" {
   }
 }
 
-output "ec2_public_dns_name" {
-  value       = aws_instance.web.public_dns
-  description = "Publik DNS for EC2-instansen"
-}
+# ---------------------------------------------------------
+# Elastic IP
+# ---------------------------------------------------------
 
-output "ec2_public_ip" {
-  value       = aws_instance.web.public_ip
-  description = "Publik IP for EC2-instansen"
+resource "aws_eip" "web" {
+  domain = "vpc"
+
+  instance = aws_instance.web.id
+
+  tags = {
+    Name = "ai-bildgenerator-ip"
+  }
 }
